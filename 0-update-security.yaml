@@ -1,0 +1,10 @@
+---
+- name: Setup Text-Box Environment
+  hosts: all
+  become: yes
+  become_method: sudo
+  tasks:
+    - name: Ensure all packages are up to date
+      dnf:
+        name: "*"
+        state: latest

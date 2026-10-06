@@ -1,0 +1,9 @@
+all:
+  children:
+    runners:
+      hosts:
+        # REPLACE WITH YOUR ACTUAL VM IP ADDRESS
+        198.51.100.15:
+      vars:
+        ansible_user: "opc" # Default Oracle Linux user
+        ansible_ssh_private_key_file: "~/.ssh/id_rsa"

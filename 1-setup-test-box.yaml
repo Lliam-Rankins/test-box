@@ -1,0 +1,52 @@
+---
+- name: Install the Test Box dependancies
+  hosts: runners
+  become: yes
+  become_method: sudo
+
+  vars_files:
+    - secrets.yaml
+
+  vars:
+    runner_user: "{{ ansible_user }}"
+    github_account: "Lliam-Rankins"
+    github_repo: "test-box"
+    runner_state: "started"
+  pre_tasks:
+    - name: Installing packages
+      dnf:
+        name:
+          - yum-utils
+          - zip
+          - unzip
+          - git
+        state: present
+
+    - name: Fetching Docker
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: "0644"
+
+    - name: Installing Docker
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add Runner to Docker User Group
+      user:
+        name: "{{ansible_user}}"
+        groups: docker
+        append: yes
+
+  roles:
+    - role: monolithprojects.github_actions_runner
