@@ -16,7 +16,7 @@ jobs:
 
       - name: Run Container
         run: |
-          docker run --rm test-box-${{ github.sha }}
+          docker run --rm -e TEST=true test-box-${{ github.sha }}
 
       - name: Cleanup Container
         if: always()
