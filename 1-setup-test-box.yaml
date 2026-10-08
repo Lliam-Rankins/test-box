@@ -9,9 +9,9 @@
 
   vars:
     runner_user: "{{ ansible_user }}"
-    github_account: "Lliam-Rankins"
-    github_repo: "test-box"
     runner_state: "started"
+    github_repo: "test-box"
+
   pre_tasks:
     - name: Installing packages
       dnf:

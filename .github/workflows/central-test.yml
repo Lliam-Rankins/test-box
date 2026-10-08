@@ -1,0 +1,32 @@
+name: test-box
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: "Branch to be checked out and tested"
+        default: "release"
+        required: false
+        type: string
+
+jobs:
+  test_box_setup_and_run:
+    runs-on: self-hosted
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: build container
+        run: |
+          docker build . -t test-box-${{ github.sha }}
+
+      - name: Run Container
+        run: |
+          docker run --rm test-box-${{ github.sha }}
+
+      - name: Cleanup Container
+        if: always()
+        run: |
+          docker rmi test-box-${{ github.sha }}
