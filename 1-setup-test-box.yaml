@@ -6,11 +6,11 @@
 
   vars_files:
     - secrets.yaml
+    - repositories.yml
 
   vars:
     runner_user: "{{ ansible_user }}"
     runner_state: "started"
-    github_repo: "test-box"
 
   pre_tasks:
     - name: Installing packages
@@ -48,5 +48,12 @@
         groups: docker
         append: yes
 
-  roles:
-    - role: monolithprojects.github_actions_runner
+  tasks:
+    - name: Deploy runner for each repository
+      include_role:
+        name: monolithprojects.github_actions_runner
+      vars:
+        github_repo: "{{item}}"
+        runner_name: "runner-{{item}}"
+        runner_dir: "/opt/actions-runner/{{item}}"
+      loop: "{{repositories}}"
