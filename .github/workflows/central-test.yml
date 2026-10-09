@@ -2,6 +2,12 @@ name: test-box
 
 on:
   workflow_call:
+    inputs:
+      test_service:
+        description: "Name of giving exit code"
+        required: false
+        type: string
+        default: "app"
 
 jobs:
   test_box_setup_and_run:
@@ -10,15 +16,25 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: build container
+      - name: Build and Run Single Container
+        if: hashFiles('*compose*.y*ml') == ''
         run: |
           docker build . -t test-box-${{ github.sha }}
-
-      - name: Run Container
-        run: |
           docker run --rm -e TEST=true test-box-${{ github.sha }}
 
-      - name: Cleanup Container
-        if: always()
+      - name: Build and Run Compose
+        if: hashFiles('*compose*.y*ml') != ''
+        env:
+          TEST: "true"
+        run: |
+          docker compose up --build --abort-on-container-exit --exit-code-from ${{ inputs.test_service }}
+
+      - name: Cleanup Single Container
+        if: always() && hashFiles('*compose*.y*ml') == ''
         run: |
           docker rmi test-box-${{ github.sha }}
+
+      - name: Cleanup Compose
+        if: always() && hashFiles('*compose*.y*ml') != ''
+        run: |
+          docker compose down -v
