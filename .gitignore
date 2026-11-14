@@ -2,3 +2,4 @@ hosts.yaml
 .env
 secrets.yaml
 repositories.yml
+DESIGN.md

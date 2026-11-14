@@ -3,38 +3,133 @@ name: test-box
 on:
   workflow_call:
     inputs:
+      runs_on:
+        description: "Runner lable: 'ubuntu-latest' or 'self-hosted'"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      enable_lint:
+        description: "Execute the lint stage"
+        required: false
+        type: boolean
+        default: false
+      enable_deploy:
+        description: "Execute Blue/Green deployment"
+        required: false
+        type: boolean
+        default: false
+      deploy_environment:
+        description: "Github Environment name for secrets"
+        required: false
+        type: string
+        default: "staging"
       test_service:
-        description: "Name of giving exit code"
+        description: "Compose service reporting test exit code"
         required: false
         type: string
         default: "app"
+      health_endpoint:
+        description: "HTTP endpoint to verify smoke tests"
+        required: false
+        type: string
+        default: "/"
+    secrets:
+      GHCR_PULL_TOKEN:
+        required: false
 
 jobs:
-  test_box_setup_and_run:
-    runs-on: self-hosted
+  lint:
+    if: ${{inputs.enable_lint}}
+    runs_on: ${{inputs.runs_on}}
     steps:
-      - name: checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build and Run Single Container
+      - name: Lint Single Container
         if: hashFiles('*compose*.y*ml') == ''
         run: |
-          docker build . -t test-box-${{ github.sha }}
-          docker run --rm -e TEST=true test-box-${{ github.sha }}
+          docker build . -t lint-${{github.sha}}
+          docker run --rm -e LINT=true lint-${{github.sha}}
 
-      - name: Build and Run Compose
+      - name: Lint Compose Setup
         if: hashFiles('*compose*.y*ml') != ''
         env:
-          TEST: "true"
-        run: |
-          docker compose up --build --abort-on-container-exit --exit-code-from ${{ inputs.test_service }}
+          LINT: "true"
+        run: docker compose up --build --abort-on-container-exit --exit-code-from ${{inputs.test_service}}
 
-      - name: Cleanup Single Container
-        if: always() && hashFiles('*compose*.y*ml') == ''
+      - name: Cleanup Lint Artifacts
+        if: always()
         run: |
-          docker rmi test-box-${{ github.sha }}
+          docker compose down -v 2>/dev/null || true
+          docker rmi lint-${{github.sha}} 2>/dev/null || true
 
-      - name: Cleanup Compose
-        if: always() && hashFiles('*compose*.y*ml') != ''
+  test:
+    needs: [lint]
+    if: always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped')
+    runs_on: ${{inputs.runs_on}}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Test Single Container
+        if: hashFiles('*compose*.y*ml') == ''
         run: |
-          docker compose down -v
+          docker build . -t test-${{github.sha}}
+          docker run --rm -e TEST=true test-${{github.sha}}
+
+      - name: Test Compose Setup
+        if: hashFiles('*compose*.y*ml') != ''
+        env:
+          TEST: true
+        run: |
+          docker compose up --build --abort-on-container-exit --exit-code-from ${{inputs.test_service}}
+
+      - name: Cleanup Artifacts
+        if: always()
+        run: |
+          docker compose down -v 2>/dev/null || true
+          docker rmi test-${{github.sha}} 2>/dev/null || true
+
+  publish:
+    needs: [test]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{steps.meta.outputs.tags}}
+      image_name: ${{steps.image_path.outputs.lowercase_image}}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create Lowercase Image Path
+        id: image_path
+        run: |
+          LOW_NAME=$(echo "ghcr.io/${{github.repository}}" | tr '[:upper:]' '[:lower:]')
+          echo "lowercase_image=$LOW_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{github.repository_owner}}
+          password: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{steps.image_path.outputs.lowercase_image}}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build and Push Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{steps.meta.outputs.tags}}
+          labels: ${{steps.meta.outputs.labels}}
