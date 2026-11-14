@@ -40,7 +40,7 @@ on:
 jobs:
   lint:
     if: ${{inputs.enable_lint}}
-    runs_on: ${{inputs.runs_on}}
+    runs-on: ${{inputs.runs_on}}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -66,7 +66,7 @@ jobs:
   test:
     needs: [lint]
     if: always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped')
-    runs_on: ${{inputs.runs_on}}
+    runs-on: ${{inputs.runs_on}}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
