@@ -2,7 +2,7 @@ At the time of writing this, I realized I am actually commiting this to my perso
 
 ## Statement on Progress
 
-![Picture of the Test-Box CI/CD pipeline](media\Test-Box_Pipeline.png)
+![Picture of the Test-Box CI/CD pipeline](media/Test-Box_Pipeline.png)
 
 Current progress on the Test-Box application is going well. The distributed pipeline is able to handle linting, testing, and publishing of all projects its connected to.
 
